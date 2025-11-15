@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-R">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Marketplace</title>
+        
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Using the default system font stack for max speed and familiarity */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #F8FAFC; /* A very light, soft blue-gray */
+            color: #111827; /* Dark, readable text */
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 700; /* Bold headings for clarity */
+        }
+
+        #hero-section {
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white border-b border-gray-200">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <div class="flex-shrink-0 flex items-center">
+                    <img id="institute-logo" class="h-10 w-auto" src="" alt="Institute Logo">
+                </div>
+                                
+                <div class="flex items-center space-x-3">
+                    <a href="customer_login.html" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Log In</a>
+                    <a href="customer_signup.html" class="inline-flex items-center justify-center px-5 py-2 border border-transparent rounded-full shadow-sm text-sm font-medium text-white bg-sky-500 hover:bg-sky-600 transition-colors">
+                        Sign Up
+                    </a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        
+        <div id="hero-section" class="bg-sky-700">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28 text-center" style="background-color: rgba(14, 116, 144, 0.7); border-radius: 0.5rem;">
+                <h1 id="institute-welcome" class="text-4xl font-extrabold text-white sm:text-5xl md:text-6xl">
+                    Loading Store...
+                </h1>
+            </div>
+        </div>
+        
+        <div class="bg-white py-16">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-8 pb-4 border-b border-gray-200">Our Courses</h2>
+                            
+                <p id="loading-courses" class="text-gray-500 text-lg">Loading courses...</p>
+                            
+                <div id="course-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-gray-50 border-t border-gray-200">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
+            <p class="text-sm text-gray-500">&copy; 2025 ERPLI. All rights reserved.</p>
+        </div>
+    </footer>
+
+    
+    <script type="module">
+        // 1. Import Supabase
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+        // 2. Supabase keys (No changes)
+        const SUPABASE_URL = 'https://mclizdhmmzckhjnocktz.supabase.co'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jbGl6ZGhtbXpja2hqbm9ja3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNDk5MzUsImV4cCI6MjA3NzgyNTkzNX0.zKvs2XDOvcJfb_mCDHOMsJwRKvUViWWTjZRcOKExAfI'
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+        // 3. Get DOM elements (No changes)
+        const courseGrid = document.getElementById('course-grid');
+        const loadingMessage = document.getElementById('loading-courses');
+        const instituteLogo = document.getElementById('institute-logo');
+        const instituteWelcome = document.getElementById('institute-welcome');
+        const heroSection = document.getElementById('hero-section');
+                
+        // --- Helper Function: Format Price (DESIGN CHANGE) ---
+        function formatPrice(course) {
+            if (course.is_free) {
+                // NEW COLOR: A friendly 'green' for "Free"
+                return `<span class_name="text-2xl font-bold text-green-600">Free</span>`;
+            }
+            if (course.sale_price > 0 && course.sale_price < course.full_price) {
+                return `
+                    <span class_name="text-2xl font-bold text-gray-800">$${course.sale_price}</span>
+                    <span class_name="ml-2 text-lg font-medium text-gray-400 line-through">$${course.full_price}</span>
+                `;
+            }
+            return `<span class="text-2xl font-bold text-gray-800">$${course.full_price}</span>`;
+        }
+                
+        // --- Function to get store_slug from URL (No changes) ---
+        function getStoreSlugFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const slug = params.get('store');
+            return slug;
+        }
+                
+        // --- Function to fetch institute branding (No changes) ---
+        async function fetchInstituteData(slug) {
+            const { data: institute, error } = await supabase
+                .from('institutes')
+                .select('id, name, logo_url, hero_image_url, welcome_message')
+                .eq('store_slug', slug)
+                .single();
+                            
+            if (error || !institute) {
+                console.error('Error fetching institute data:', error);
+                throw new Error('This store could not be found.');
+            }
+                        
+            document.title = `${institute.name} - Courses`;
+            instituteLogo.src = institute.logo_url || 'https://placehold.co/150x40/0EA5E9/FFFFFF?text=My+Logo'; // Changed placeholder to Sky
+            instituteLogo.alt = `${institute.name} Logo`;
+            instituteWelcome.textContent = institute.welcome_message || `Welcome to ${institute.name}`;
+                        
+            if (institute.hero_image_url) {
+                heroSection.style.backgroundImage = `url(${institute.hero_image_url})`;
+            }
+                        
+            return institute.id;
+        }
+
+        // --- Fetch and Render Courses (DESIGN CHANGES) ---
+        async function fetchAndRenderCourses(instituteId) {
+            const { data: courses, error } = await supabase
+                .from('courses')
+                .select('id, name, description, is_free, full_price, sale_price, thumbnail_url')
+                .eq('is_published', true)
+                .eq('is_online', true)
+                .eq('institute_id', instituteId)
+                .order('name', { ascending: true });
+
+            if (error) {
+                console.error('Error fetching courses:', error);
+                loadingMessage.textContent = 'Error loading courses for this institute.';
+                loadingMessage.classList.add('text-red-500');
+                return;
+            }
+
+            if (courses.length === 0) {
+                loadingMessage.textContent = 'No online courses are available from this institute yet.';
+                return;
+            }
+
+            loadingMessage.style.display = 'none';
+            courseGrid.innerHTML = '';
+                        
+            courses.forEach(course => {
+                const card = document.createElement('div');
+                
+                // --- DESIGN CHANGE: Soft shadow, rounded corners, clean layout ---
+                card.className = 'flex flex-col bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100';
+                                
+                let imageUrl = `https://placehold.co/600x400/0EA5E9/FFFFFF?text=${encodeURIComponent(course.name)}`; // Default placeholder (Sky)
+                if (course.thumbnail_url && course.thumbnail_url[0]) {
+                    imageUrl = course.thumbnail_url[0];
+                }
+
+                // --- DESIGN CHANGE: Clean card with clear button ---
+                card.innerHTML = `
+                    <div>
+                        <img class="h-48 w-full object-cover"
+                             src="${imageUrl}"
+                             alt="${course.name}">
+                    </div>
+                    <div class="flex-1 p-6 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-800">${course.name}</h3>
+                            <p class="mt-3 text-sm text-gray-600 overflow-hidden" style="display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;">
+                                ${course.description || 'No description available.'}
+                            </p>
+                        </div>
+                        <div class="mt-6">
+                            <div class="mb-4">
+                                ${formatPrice(course)}
+                            </div>
+                            <a href="checkout.html?course_id=${course.id}" class="block w-full text-center px-4 py-3 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-sky-500 hover:bg-sky-600 transition-colors">
+                                Buy Now
+                            </a>
+                        </div>
+                    </div>
+                `;
+                courseGrid.appendChild(card);
+            });
+        }
+                
+        // --- Main Page Logic (No changes) ---
+        async function loadPage() {
+            const storeSlug = getStoreSlugFromUrl();
+                        
+            if (!storeSlug) {
+                loadingMessage.textContent = 'Error: Store not specified. Please check your link.';
+                loadingMessage.classList.add('text-red-500');
+                instituteWelcome.textContent = "Store Not Found";
+                return;
+            }
+                        
+            try {
+                const instituteId = await fetchInstituteData(storeSlug);
+                await fetchAndRenderCourses(instituteId);
+            } catch (error) {
+                loadingMessage.textContent = error.message;
+                loadingMessage.classList.add('text-red-500');
+                instituteWelcome.textContent = "Store Not Found";
+            }
+        }
+                
+        loadPage(); // Start the app
+    </script>
+
+</body>
+</html>
