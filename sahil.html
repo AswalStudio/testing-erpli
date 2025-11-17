@@ -95,11 +95,11 @@
             }
             if (course.sale_price > 0 && course.sale_price < course.full_price) {
                 return `
-                    <span class="text-2xl font-bold text-gray-900">$${course.sale_price}</span>
-                    <span class="ml-2 text-lg font-medium text-gray-500 line-through">$${course.full_price}</span>
+                    <span class="text-2xl font-bold text-gray-900">${course.sale_price}</span>
+                    <span class="ml-2 text-lg font-medium text-gray-500 line-through">${course.full_price}</span>
                 `;
             }
-            return `<span class="text-2xl font-bold text-gray-900">$${course.full_price}</span>`;
+            return `<span class="text-2xl font-bold text-gray-900">${course.full_price}</span>`;
         }
                 
         // --- Function to get store_slug from URL (No changes) ---
