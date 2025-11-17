@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - ERPLI</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <style>
+        body {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #F9FAFB;
+            color: #1F2937;
+        }
+        .form-label { display: block; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
+        .form-input { display: block; width: 100%; padding: 0.75rem 1rem; border: 1px solid #D1D5DB; border-radius: 0.5rem; background-color: #ffffff; color: #1F2937; }
+        .form-input:focus { outline: none; border-color: #3B82F6; box-shadow: 0 0 0 2px #BFDBFE; }
+        .form-submit-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; color: #ffffff; background-color: #3B82F6; transition: background-color 0.2s ease; width: 100%; }
+        .form-submit-button:hover { background-color: #2563EB; }
+        .form-submit-button:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <header class="bg-white shadow-sm">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex-shrink-0 flex items-center">
+                    <span id="institute-name-header" class="text-2xl font-bold text-gray-900">ERPLI Courses</span>
+                </div>
+                <div id="user-menu" class="flex items-center hidden">
+                    <span id="user-email-display" class="text-sm text-gray-600 mr-4"></span>
+                    <button id="logout-button" class="text-sm font-medium text-red-600 hover:text-red-800">Log Out</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div class="mb-4">
+            <a href="#" id="back-to-store" class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900">
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                Back to Store
+            </a>
+        </div>
+        
+        <div id="loading-div" class="text-center p-12">
+            <p class="text-gray-500">Loading checkout...</p>
+        </div>
+
+        <div id="main-content" class="hidden grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16">
+            
+            <div class="space-y-6">
+                
+                <div id="guest-form-container" class="hidden">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Your Information</h2>
+                        <p class="text-sm text-gray-500">Create your account to access the course.</p>
+                    </div>
+                    
+                    <form id="signup-form" class="mt-6 grid grid-cols-1 gap-y-4">
+                        <div>
+                            <label for="full-name" class="form-label">Full Name</label>
+                            <input type="text" id="full-name" class="form-input" required autocomplete="name">
+                        </div>
+                        <div>
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" id="email" class="form-input" required autocomplete="email">
+                        </div>
+                        <div>
+                            <label for="password" class="form-label">Create Password</label>
+                            <input type="password" id="password" class="form-input" required minlength="6">
+                        </div>
+                        <div>
+                            <label for="phone" class="form-label">Phone Number</label>
+                            <input type="tel" id="phone" class="form-input" required autocomplete="tel">
+                        </div>
+                        <div>
+                            <label for="city" class="form-label">City</label>
+                            <input type="text" id="city" class="form-input" required autocomplete="address-level2">
+                        </div>
+                        <div class="pt-4">
+                            <p class="text-sm text-gray-500">
+                                Already have an account? <a href="customer_login.html" class="text-blue-600 hover:underline">Log in here</a>
+                            </p>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="logged-in-card" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <h2 class="text-xl font-bold text-blue-900">Welcome back!</h2>
+                    <p class="text-sm text-blue-700 mt-1">You are logged in as <span id="logged-in-email" class="font-semibold">...</span></p>
+                    
+                    <div class="mt-4 pt-4 border-t border-blue-200">
+                        <p class="text-sm text-gray-600 mb-2">Confirm your details for this order:</p>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <span class="block text-xs text-gray-500">Name</span>
+                                <span id="display-name" class="font-medium text-gray-900">Loading...</span>
+                            </div>
+                            <div>
+                                <span class="block text-xs text-gray-500">Phone</span>
+                                <span id="display-phone" class="font-medium text-gray-900">...</span>
+                            </div>
+                        </div>
+                        <input type="hidden" id="hidden-name">
+                        <input type="hidden" id="hidden-phone">
+                        <input type="hidden" id="hidden-city">
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="bg-white p-6 md:p-8 rounded-lg shadow border border-gray-200 h-fit sticky top-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Order Summary</h2>
+                
+                <div class="flex justify-between items-center pb-4 border-b border-gray-200">
+                    <div>
+                        <p class="text-sm text-gray-500">COURSE</p>
+                        <p id="course-name" class="text-lg font-medium text-gray-900">Loading course...</p>
+                    </div>
+                    <p id="course-price-display" class="text-lg font-bold text-gray-900">₹0.00</p>
+                </div>
+                
+                <div class="py-4 border-b border-gray-200">
+                    <label for="coupon-code" class="form-label">Coupon Code</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="coupon-code" class="form-input" placeholder="e.g., SAVE10">
+                        <button type="button" id="apply-coupon-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300">Apply</button>
+                    </div>
+                    <p id="coupon-message" class="text-sm mt-2"></p>
+                </div>
+                
+                <div class="py-4 space-y-2">
+                    <div class="flex justify-between">
+                        <p class="text-gray-600">Subtotal</p>
+                        <p id="subtotal-display" class="text-gray-900">₹0.00</p>
+                    </div>
+                    <div id="discount-row" class="flex justify-between hidden">
+                        <p class="text-green-600">Discount</p>
+                        <p id="discount-display" class="text-green-600">-₹0.00</p>
+                    </div>
+                    <div class="flex justify-between text-lg font-bold">
+                        <p class="text-gray-900">Total</p>
+                        <p id="total-display" class="text-gray-900">₹0.00</p>
+                    </div>
+                </div>
+
+                <button type="submit" id="pay-button" class="form-submit-button">
+                    Proceed to Payment
+                </button>
+            </div>
+            
+        </div>
+    </main>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+        const SUPABASE_URL = 'https://mclizdhmmzckhjnocktz.supabase.co'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jbGl6ZGhtbXpja2hqbm9ja3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNDk5MzUsImV4cCI6MjA3NzgyNTkzNX0.zKvs2XDOvcJfb_mCDHOMsJwRKvUViWWTjZRcOKExAfI'
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+        // Elements
+        const loadingDiv = document.getElementById('loading-div');
+        const mainContent = document.getElementById('main-content');
+        const guestFormContainer = document.getElementById('guest-form-container');
+        const loggedInCard = document.getElementById('logged-in-card');
+        const signupForm = document.getElementById('signup-form'); 
+        
+        const courseNameEl = document.getElementById('course-name');
+        const coursePriceEl = document.getElementById('course-price-display');
+        const subtotalEl = document.getElementById('subtotal-display');
+        const totalEl = document.getElementById('total-display');
+        const discountRow = document.getElementById('discount-row');
+        const discountEl = document.getElementById('discount-display');
+        
+        const payButton = document.getElementById('pay-button');
+        const couponInput = document.getElementById('coupon-code');
+        const applyCouponBtn = document.getElementById('apply-coupon-btn');
+        const couponMessage = document.getElementById('coupon-message');
+        const logoutButton = document.getElementById('logout-button');
+        const backToStoreLink = document.getElementById('back-to-store');
+
+        // State
+        let currentCourse = null;
+        let currentUser = null;
+        let userProfile = null; 
+        let finalPrice = 0;
+        let appliedCoupon = null;
+
+        // Format Currency (INR)
+        const formatter = new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 2
+        });
+
+        function logDebug(msg, data) {
+            console.log(`[DEBUG] ${msg}`, data || '');
+        }
+
+        function getCourseIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('course_id');
+        }
+
+        async function fetchCourseDetails(courseId) {
+            const { data, error } = await supabase
+                .from('courses')
+                .select('id, name, description, is_free, full_price, sale_price, institute_id, institutes ( name, razorpay_key_id, store_slug )')
+                .eq('id', courseId)
+                .eq('is_published', true)
+                .eq('is_online', true)
+                .single();
+
+            if (error || !data) {
+                loadingDiv.innerHTML = `<p class="text-red-500">Error loading course: ${error ? error.message : 'Course not found'}</p>`;
+                return null;
+            }
+            
+            if (data.institutes?.store_slug) {
+                backToStoreLink.href = `storefront.html?store=${data.institutes.store_slug}`;
+            }
+            document.getElementById('institute-name-header').textContent = data.institutes?.name || 'ERPLI Courses';
+            return data;
+        }
+        
+        async function checkLoginStatus() {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session) {
+                currentUser = session.user;
+                const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', currentUser.id).single();
+                const { data: customer } = await supabase.from('customers').select('phone, city').eq('auth_user_id', currentUser.id).maybeSingle();
+
+                userProfile = { ...profile, ...customer };
+
+                guestFormContainer.classList.add('hidden');
+                loggedInCard.classList.remove('hidden');
+                document.getElementById('user-menu').classList.remove('hidden');
+                
+                document.getElementById('user-email-display').textContent = currentUser.email;
+                document.getElementById('logged-in-email').textContent = currentUser.email;
+                document.getElementById('display-name').textContent = userProfile.full_name || "Not set";
+                document.getElementById('display-phone').textContent = userProfile.phone || "Not set";
+                
+                document.getElementById('hidden-name').value = userProfile.full_name || "";
+                document.getElementById('hidden-phone').value = userProfile.phone || "";
+                document.getElementById('hidden-city').value = userProfile.city || "";
+            } else {
+                guestFormContainer.classList.remove('hidden');
+                loggedInCard.classList.add('hidden');
+                document.getElementById('user-menu').classList.add('hidden');
+            }
+        }
+
+        function updatePriceDisplay() {
+            let basePrice = currentCourse.is_free ? 0 : (currentCourse.sale_price > 0 ? currentCourse.sale_price : currentCourse.full_price);
+            let discountAmount = 0;
+
+            if (appliedCoupon) {
+                if (appliedCoupon.type === 'percentage') {
+                    discountAmount = basePrice * (appliedCoupon.value / 100);
+                } else {
+                    discountAmount = appliedCoupon.value;
+                }
+                if (discountAmount > basePrice) discountAmount = basePrice;
+
+                discountEl.textContent = `-${formatter.format(discountAmount)}`;
+                discountRow.classList.remove('hidden');
+                couponMessage.textContent = `Coupon "${appliedCoupon.code}" applied!`;
+                couponMessage.className = 'text-sm mt-2 text-green-600';
+            } else {
+                discountRow.classList.add('hidden');
+            }
+
+            finalPrice = basePrice - discountAmount;
+            
+            courseNameEl.textContent = currentCourse.name;
+            coursePriceEl.textContent = formatter.format(basePrice);
+            subtotalEl.textContent = formatter.format(basePrice);
+            totalEl.textContent = formatter.format(finalPrice);
+
+            if (finalPrice === 0) {
+                payButton.textContent = 'Enroll for Free';
+            } else {
+                payButton.textContent = `Pay ${formatter.format(finalPrice)}`;
+            }
+        }
+
+        applyCouponBtn.addEventListener('click', async () => {
+            const code = couponInput.value.toUpperCase();
+            if (!code) return;
+            
+            couponMessage.textContent = 'Checking...';
+            couponMessage.className = 'text-sm mt-2 text-gray-500';
+            
+            const { data, error } = await supabase.rpc('validate_coupon', {
+                coupon_code: code,
+                course_id_to_check: currentCourse.id
+            });
+
+            if (error || !data.valid) {
+                couponMessage.textContent = data?.message || 'Invalid code';
+                couponMessage.className = 'text-sm mt-2 text-red-500';
+                appliedCoupon = null;
+            } else {
+                appliedCoupon = data;
+            }
+            updatePriceDisplay();
+        });
+
+        logoutButton.addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            window.location.reload();
+        });
+
+        payButton.addEventListener('click', async () => {
+            payButton.disabled = true;
+            payButton.textContent = 'Processing...';
+
+            let customerDetails = {};
+            
+            if (currentUser) {
+                customerDetails = {
+                    fullName: document.getElementById('hidden-name').value || "Student",
+                    email: currentUser.email,
+                    password: "EXISTING_USER_NO_PASSWORD_NEEDED",
+                    phone: document.getElementById('hidden-phone').value || "0000000000",
+                    city: document.getElementById('hidden-city').value || "Unknown"
+                };
+            } else {
+                if (!signupForm.checkValidity()) {
+                    signupForm.reportValidity();
+                    payButton.disabled = false;
+                    payButton.textContent = 'Proceed to Payment';
+                    return;
+                }
+                customerDetails = {
+                    fullName: document.getElementById('full-name').value,
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value,
+                    phone: document.getElementById('phone').value,
+                    city: document.getElementById('city').value
+                };
+            }
+
+            try {
+                const { data: orderData, error: orderError } = await supabase.functions.invoke('create-order', {
+                    body: {
+                        courseId: currentCourse.id,
+                        customerDetails: customerDetails,
+                        couponCode: appliedCoupon?.code
+                    }
+                });
+
+                if (orderError) throw orderError;
+                if (orderData.error) throw new Error(orderData.error);
+
+                if (finalPrice === 0) {
+                     alert('Success! You have been enrolled.');
+                     window.location.href = 'student_dashboard.html';
+                     return;
+                }
+
+                const options = {
+                    "key": orderData.razorpay_key_id,
+                    "amount": Math.round(finalPrice * 100),
+                    "currency": "INR",
+                    "name": currentCourse.institutes.name,
+                    "description": `Payment for ${currentCourse.name}`,
+                    "order_id": orderData.razorpay_order_id,
+                    "handler": async function (response) {
+                        alert('Payment Successful! Welcome!');
+                        
+                        if (!currentUser) {
+                            await supabase.auth.signInWithPassword({
+                                email: customerDetails.email,
+                                password: customerDetails.password,
+                            });
+                        }
+                        window.location.href = 'student_dashboard.html';
+                    },
+                    // Removed 'contact' from prefill as requested
+                    "prefill": {
+                        "name": customerDetails.fullName,
+                        "email": customerDetails.email
+                    },
+                    "theme": { "color": "#3B82F6" }
+                };
+                
+                const rzp = new Razorpay(options);
+                rzp.on('payment.failed', function (response){
+                    alert(`Payment failed: ${response.error.description}`);
+                    payButton.disabled = false;
+                    payButton.textContent = `Pay ${formatter.format(finalPrice)}`;
+                });
+                rzp.open();
+
+            } catch (error) {
+                console.error('FULL ERROR:', error);
+                
+                // Enhanced error handling to catch the Edge Function 400
+                let errorMessage = error.message;
+                if (error.context && error.context.json) {
+                     error.context.json().then(json => {
+                         console.log("Edge Function Response:", json);
+                         // Show the specific error from the server (e.g. "Razorpay Error: ...")
+                         alert(`Server Error: ${json.error || errorMessage}`);
+                     });
+                } else {
+                    alert(`Payment Failed: ${errorMessage}`);
+                }
+
+                payButton.disabled = false;
+                payButton.textContent = `Pay ${formatter.format(finalPrice)}`;
+            }
+        });
+
+        async function init() {
+            const courseId = getCourseIdFromUrl();
+            if (!courseId) return;
+            currentCourse = await fetchCourseDetails(courseId);
+            if (currentCourse) {
+                await checkLoginStatus();
+                updatePriceDisplay();
+                loadingDiv.style.display = 'none';
+                mainContent.classList.remove('hidden');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
