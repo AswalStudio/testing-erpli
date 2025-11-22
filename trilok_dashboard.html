@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Courses - ERPLI</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #F9FAFB; /* gray-50 */
+            color: #1F2937; /* gray-800 */
+        }
+    </style>
+</head>
+<body>
+
+    <header class="bg-white shadow-sm">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex-shrink-0 flex items-center">
+                    <span id="dashboard-title" class="text-2xl font-bold text-gray-900">My Dashboard</span>
+                </div>
+                
+                <div class="flex items-center">
+                    <span id="welcome-email" class="text-sm text-gray-500 mr-4">Loading...</span>
+                    <button id="logout-button" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+                        Log Out
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-900">My Courses</h1>
+            
+            <a id="browse-more-link" href="#" class="hidden text-sm font-medium text-blue-600 hover:text-blue-800">
+                Browse more courses &rarr;
+            </a>
+        </div>
+        
+        <p id="loading-courses" class="text-gray-500">Loading your enrolled courses...</p>
+        
+        <div id="course-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            </div>
+
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-12">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
+            <p class="text-sm text-gray-500">&copy; 2025 ERPLI. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script type="module">
+        // 1. Import Supabase
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+        // 2. Supabase keys
+        const SUPABASE_URL = 'https://mclizdhmmzckhjnocktz.supabase.co'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jbGl6ZGhtbXpja2hqbm9ja3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNDk5MzUsImV4cCI6MjA3NzgyNTkzNX0.zKvs2XDOvcJfb_mCDHOMsJwRKvUViWWTjZRcOKExAfI'
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+        // 3. Get DOM elements
+        const courseGrid = document.getElementById('course-grid');
+        const loadingMessage = document.getElementById('loading-courses');
+        const welcomeEmailEl = document.getElementById('welcome-email');
+        const logoutButton = document.getElementById('logout-button');
+        const dashboardTitle = document.getElementById('dashboard-title');
+        const browseMoreLink = document.getElementById('browse-more-link');
+
+        // Global state
+        let currentUser = null;
+        let currentCustomer = null;
+        
+        // --- CONFIGURATION ---
+const INSTITUTE_SLUG = "trilok"; // Hardcode here
+
+function getStoreSlug() {
+    return INSTITUTE_SLUG;
+}
+
+        // --- 2. Check Authentication ---
+        async function checkAuth() {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            
+            if (sessionError || !session) {
+                // Pass the store slug back to login so we return here correctly
+                const slug = getStoreSlug();
+                const returnUrl = slug ? `customer_login.html?store=${slug}` : 'customer_login.html';
+                window.location.href = returnUrl;
+                return;
+            }
+            currentUser = session.user;
+            
+            // Verify Customer
+            const { data: customer, error: customerError } = await supabase
+                .from('customers')
+                .select('id, email, full_name') // Ensure 'full_name' exists in DB
+                .eq('auth_user_id', currentUser.id)
+                .single();
+                
+            if (customerError || !customer) {
+                console.error('User is not a customer.', customerError);
+                await supabase.auth.signOut();
+                window.location.href = 'customer_login.html';
+                return;
+            }
+            
+            currentCustomer = customer;
+            runPageLogic();
+        }
+
+        // --- 3. Main Page Logic ---
+        function runPageLogic() {
+            setupHeader();
+            fetchEnrolledCourses();
+        }
+        
+        // --- 4. Setup Header ---
+        async function setupHeader() {
+            welcomeEmailEl.textContent = `Welcome, ${currentCustomer.full_name || currentCustomer.email}`;
+            
+            const storeSlug = getStoreSlug();
+            if (storeSlug) {
+                // Fetch branding if we are in a specific store context
+                const { data: institute } = await supabase
+                    .from('institutes')
+                    .select('name')
+                    .eq('store_slug', storeSlug)
+                    .single();
+                
+                if (institute) {
+                    dashboardTitle.textContent = institute.name;
+                    document.title = `${institute.name} - Dashboard`;
+                    
+                    // Show "Browse More" link pointing to this store
+                    browseMoreLink.href = `storefront.html?store=${storeSlug}`;
+                    browseMoreLink.classList.remove('hidden');
+                }
+            }
+
+            logoutButton.addEventListener('click', async () => {
+                await supabase.auth.signOut();
+                const slug = getStoreSlug();
+                const returnUrl = slug ? `customer_login.html?store=${slug}` : 'customer_login.html';
+                window.location.href = returnUrl;
+            });
+        }
+
+        // --- 5. Fetch Enrolled Courses (STRICT FILTERING) ---
+        async function fetchEnrolledCourses() {
+            const storeSlug = getStoreSlug();
+            
+            // Build the query
+            // We use !inner to enforce filtering on the joined tables
+            let query = supabase
+                .from('course_enrollments')
+                .select(`
+                    purchase_date,
+                    courses!inner (
+                        id,
+                        name,
+                        description,
+                        institutes!inner ( name, store_slug )
+                    )
+                `)
+                .eq('customer_id', currentCustomer.id)
+                .order('purchase_date', { ascending: false });
+
+            // *** STRICT ISOLATION ***
+            // If a store slug is present, ONLY show courses from that store.
+            if (storeSlug) {
+                query = query.eq('courses.institutes.store_slug', storeSlug);
+            }
+
+            const { data: enrollments, error } = await query;
+
+            if (error) {
+                console.error('Error fetching enrollments:', error);
+                loadingMessage.textContent = 'Error loading your courses.';
+                loadingMessage.classList.add('text-red-500');
+                return;
+            }
+
+            if (enrollments.length === 0) {
+                if (storeSlug) {
+                    loadingMessage.textContent = 'You have not enrolled in any courses from this institute yet.';
+                } else {
+                    loadingMessage.textContent = 'You are not enrolled in any courses yet.';
+                }
+                return;
+            }
+
+            loadingMessage.style.display = 'none';
+            courseGrid.innerHTML = '';
+            
+            enrollments.forEach(enrollment => {
+                const course = enrollment.courses;
+                if (!course) return;
+
+                const card = document.createElement('div');
+                card.className = 'flex flex-col bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200';
+                
+                const instituteName = course.institutes ? course.institutes.name : 'Institute';
+                
+                card.innerHTML = `
+                    <div>
+                        <img class="h-48 w-full object-cover" 
+                             src="https://placehold.co/600x400/3B82F6/FFFFFF?text=${encodeURIComponent(course.name)}" 
+                             alt="${course.name}">
+                    </div>
+                    <div class="flex-1 p-6 flex flex-col justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-blue-600">${instituteName}</p>
+                            <h3 class="mt-2 text-xl font-semibold text-gray-900">${course.name}</h3>
+                        </div>
+                        <div class="mt-6">
+                            <a href="student_course_player.html?course_id=${course.id}" class="block w-full text-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                                Start Learning
+                            </a>
+                        </div>
+                    </div>
+                `;
+                courseGrid.appendChild(card);
+            });
+        }
+        
+        // --- Run on page load ---
+        checkAuth();
+        
+    </script>
+</body>
+</html>
