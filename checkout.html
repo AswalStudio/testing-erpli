@@ -24,12 +24,14 @@
 </head>
 <body>
 
+    <!-- Public Header -->
     <header class="bg-white shadow-sm">
         <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex-shrink-0 flex items-center">
                     <span id="institute-name-header" class="text-2xl font-bold text-gray-900">ERPLI Courses</span>
                 </div>
+                <!-- NEW: User Menu (Shows if logged in) -->
                 <div id="user-menu" class="flex items-center hidden">
                     <span id="user-email-display" class="text-sm text-gray-600 mr-4"></span>
                     <button id="logout-button" class="text-sm font-medium text-red-600 hover:text-red-800">Log Out</button>
@@ -46,18 +48,22 @@
             </a>
         </div>
         
+        <!-- Loading -->
         <div id="loading-div" class="text-center p-12">
             <p class="text-gray-500">Loading checkout...</p>
         </div>
 
+        <!-- Main Content -->
         <div id="main-content" class="hidden grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16">
             
+            <!-- LEFT COLUMN: User Info -->
             <div class="space-y-6">
                 
+                <!-- CARD A: For Guest Users (Create Account) -->
                 <div id="guest-form-container" class="hidden">
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900">Your Information</h2>
-                        <p class="text-sm text-gray-500">Create your account to access the course.</p>
+                        <p class="text-sm text-gray-500">Create an account to enroll and access your course.</p>
                     </div>
                     
                     <form id="signup-form" class="mt-6 grid grid-cols-1 gap-y-4">
@@ -89,12 +95,13 @@
                     </form>
                 </div>
 
+                <!-- CARD B: For Logged In Users (Welcome Back) -->
                 <div id="logged-in-card" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-6">
                     <h2 class="text-xl font-bold text-blue-900">Welcome back!</h2>
                     <p class="text-sm text-blue-700 mt-1">You are logged in as <span id="logged-in-email" class="font-semibold">...</span></p>
                     
                     <div class="mt-4 pt-4 border-t border-blue-200">
-                        <p class="text-sm text-gray-600 mb-2">Confirm your details for this order:</p>
+                        <p class="text-sm text-gray-600 mb-2">We'll use your saved information for this order:</p>
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <span class="block text-xs text-gray-500">Name</span>
@@ -105,6 +112,7 @@
                                 <span id="display-phone" class="font-medium text-gray-900">...</span>
                             </div>
                         </div>
+                        <!-- Hidden inputs to store the data for submission -->
                         <input type="hidden" id="hidden-name">
                         <input type="hidden" id="hidden-phone">
                         <input type="hidden" id="hidden-city">
@@ -113,9 +121,11 @@
 
             </div>
             
+            <!-- RIGHT COLUMN: Order Summary -->
             <div class="bg-white p-6 md:p-8 rounded-lg shadow border border-gray-200 h-fit sticky top-8">
                 <h2 class="text-2xl font-bold text-gray-900 mb-6">Order Summary</h2>
                 
+                <!-- Course Item -->
                 <div class="flex justify-between items-center pb-4 border-b border-gray-200">
                     <div>
                         <p class="text-sm text-gray-500">COURSE</p>
@@ -124,6 +134,7 @@
                     <p id="course-price-display" class="text-lg font-bold text-gray-900">₹0.00</p>
                 </div>
                 
+                <!-- Coupon Section -->
                 <div class="py-4 border-b border-gray-200">
                     <label for="coupon-code" class="form-label">Coupon Code</label>
                     <div class="flex gap-2">
@@ -133,6 +144,7 @@
                     <p id="coupon-message" class="text-sm mt-2"></p>
                 </div>
                 
+                <!-- Totals -->
                 <div class="py-4 space-y-2">
                     <div class="flex justify-between">
                         <p class="text-gray-600">Subtotal</p>
@@ -148,7 +160,8 @@
                     </div>
                 </div>
 
-                <button type="submit" id="pay-button" class="form-submit-button">
+                <!-- Submit Button -->
+                <button type="button" id="pay-button" class="form-submit-button">
                     Proceed to Payment
                 </button>
             </div>
@@ -156,6 +169,7 @@
         </div>
     </main>
 
+    <!-- JAVASCRIPT -->
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
@@ -186,8 +200,8 @@
 
         // State
         let currentCourse = null;
-        let currentUser = null;
-        let userProfile = null; 
+        let currentUser = null; // Auth user
+        let userProfile = null; // DB profile (from profiles table)
         let finalPrice = 0;
         let appliedCoupon = null;
 
@@ -198,16 +212,14 @@
             minimumFractionDigits: 2
         });
 
-        function logDebug(msg, data) {
-            console.log(`[DEBUG] ${msg}`, data || '');
-        }
-
+        // --- 1. Helper Functions ---
         function getCourseIdFromUrl() {
             const params = new URLSearchParams(window.location.search);
             return params.get('course_id');
         }
 
-        async function fetchCourseDetails(courseId) {
+        // --- 2. Fetch Course ---
+        async function fetchCourse(courseId) {
             const { data, error } = await supabase
                 .from('courses')
                 .select('id, name, description, is_free, full_price, sale_price, institute_id, institutes ( name, razorpay_key_id, store_slug )')
@@ -217,27 +229,41 @@
                 .single();
 
             if (error || !data) {
-                loadingDiv.innerHTML = `<p class="text-red-500">Error loading course: ${error ? error.message : 'Course not found'}</p>`;
+                loadingDiv.innerHTML = `<p class="text-red-500">Error: Course not found or is unavailable.</p>`;
                 return null;
             }
             
-            if (data.institutes?.store_slug) {
-                backToStoreLink.href = `trilok.html
-            }
             document.getElementById('institute-name-header').textContent = data.institutes?.name || 'ERPLI Courses';
+            backToStoreLink.href = `trilok.html`;
+            
             return data;
         }
-        
+
+        // --- 3. Check Login & Set UI ---
         async function checkLoginStatus() {
             const { data: { session } } = await supabase.auth.getSession();
             
             if (session) {
+                // LOGGED IN
                 currentUser = session.user;
-                const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', currentUser.id).single();
-                const { data: customer } = await supabase.from('customers').select('phone, city').eq('auth_user_id', currentUser.id).maybeSingle();
+                
+                // Fetch profile data (from profiles table)
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('full_name, email')
+                    .eq('id', currentUser.id)
+                    .single();
+                
+                // Fetch customer data (from customers table)
+                const { data: customer } = await supabase
+                    .from('customers')
+                    .select('phone, city')
+                    .eq('auth_user_id', currentUser.id)
+                    .maybeSingle(); // Use maybeSingle in case they are an admin
 
                 userProfile = { ...profile, ...customer };
 
+                // Update UI
                 guestFormContainer.classList.add('hidden');
                 loggedInCard.classList.remove('hidden');
                 document.getElementById('user-menu').classList.remove('hidden');
@@ -247,16 +273,20 @@
                 document.getElementById('display-name').textContent = userProfile.full_name || "Not set";
                 document.getElementById('display-phone').textContent = userProfile.phone || "Not set";
                 
+                // Fill hidden inputs for submission
                 document.getElementById('hidden-name').value = userProfile.full_name || "";
                 document.getElementById('hidden-phone').value = userProfile.phone || "";
                 document.getElementById('hidden-city').value = userProfile.city || "";
+
             } else {
+                // GUEST
                 guestFormContainer.classList.remove('hidden');
                 loggedInCard.classList.add('hidden');
                 document.getElementById('user-menu').classList.add('hidden');
             }
         }
 
+        // --- 4. Pricing Logic ---
         function updatePriceDisplay() {
             let basePrice = currentCourse.is_free ? 0 : (currentCourse.sale_price > 0 ? currentCourse.sale_price : currentCourse.full_price);
             let discountAmount = 0;
@@ -291,6 +321,9 @@
             }
         }
 
+        // --- 5. Actions ---
+        
+        // Apply Coupon
         applyCouponBtn.addEventListener('click', async () => {
             const code = couponInput.value.toUpperCase();
             if (!code) return;
@@ -313,11 +346,13 @@
             updatePriceDisplay();
         });
 
+        // Logout
         logoutButton.addEventListener('click', async () => {
             await supabase.auth.signOut();
-            window.location.reload();
+            window.location.reload(); // Reload the page to show the Guest view
         });
 
+        // PAY BUTTON CLICK
         payButton.addEventListener('click', async () => {
             payButton.disabled = true;
             payButton.textContent = 'Processing...';
@@ -325,20 +360,35 @@
             let customerDetails = {};
             
             if (currentUser) {
+                // LOGGED IN USER
+                // We trust the data we fetched from the profile
                 customerDetails = {
-                    fullName: document.getElementById('hidden-name').value || "Student",
+                    fullName: document.getElementById('hidden-name').value,
                     email: currentUser.email,
-                    password: "EXISTING_USER_NO_PASSWORD_NEEDED",
-                    phone: document.getElementById('hidden-phone').value || "0000000000",
-                    city: document.getElementById('hidden-city').value || "Unknown"
+                    password: "EXISTING_USER_NO_PASSWORD_NEEDED", // Flag for Edge Function
+                    phone: document.getElementById('hidden-phone').value,
+                    city: document.getElementById('hidden-city').value
                 };
+                
+                // Check if we need to ask for missing details
+                if (!customerDetails.phone || !customerDetails.city) {
+                    alert("Please update your phone and city in your profile before purchasing."); // This is a temp alert
+                    // TODO: A better UX would be to show the form fields here
+                    payButton.disabled = false;
+                    payButton.textContent = `Pay ${formatter.format(finalPrice)}`;
+                    return;
+                }
+                
             } else {
+                // GUEST USER
+                // Validate the signup form
                 if (!signupForm.checkValidity()) {
                     signupForm.reportValidity();
                     payButton.disabled = false;
-                    payButton.textContent = 'Proceed to Payment';
+                    payButton.textContent = `Pay ${formatter.format(finalPrice)}`;
                     return;
                 }
+                
                 customerDetails = {
                     fullName: document.getElementById('full-name').value,
                     email: document.getElementById('email').value,
@@ -349,6 +399,7 @@
             }
 
             try {
+                // Call Edge Function
                 const { data: orderData, error: orderError } = await supabase.functions.invoke('create-order', {
                     body: {
                         courseId: currentCourse.id,
@@ -360,12 +411,21 @@
                 if (orderError) throw orderError;
                 if (orderData.error) throw new Error(orderData.error);
 
-                if (finalPrice === 0) {
+                // Handle Free Course (No Razorpay needed)
+                if (finalPrice === 0 || orderData.is_free) {
                      alert('Success! You have been enrolled.');
+                     // Auto-login if guest
+                     if (!currentUser) {
+                        await supabase.auth.signInWithPassword({
+                            email: customerDetails.email,
+                            password: customerDetails.password,
+                        });
+                     }
                      window.location.href = 'trilok_dashboard.html';
                      return;
                 }
 
+                // Handle Payment
                 const options = {
                     "key": orderData.razorpay_key_id,
                     "amount": Math.round(finalPrice * 100),
@@ -374,20 +434,38 @@
                     "description": `Payment for ${currentCourse.name}`,
                     "order_id": orderData.razorpay_order_id,
                     "handler": async function (response) {
-                        alert('Payment Successful! Welcome!');
-                        
-                        if (!currentUser) {
-                            await supabase.auth.signInWithPassword({
-                                email: customerDetails.email,
-                                password: customerDetails.password,
+                        // Call the 'verify-payment' function
+                        try {
+                            const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-payment', {
+                                body: {
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_signature: response.razorpay_signature
+                                }
                             });
+
+                            if (verifyError || (verifyData && verifyData.error)) {
+                                throw new Error(verifyError?.message || verifyData.error);
+                            }
+
+                            alert('Payment Successful! You are now enrolled.');
+                            
+                            if (!currentUser) {
+                                await supabase.auth.signInWithPassword({
+                                    email: customerDetails.email,
+                                    password: customerDetails.password,
+                                });
+                            }
+                            window.location.href = 'trilok_dashboard.html';
+
+                        } catch (err) {
+                            alert("Payment successful, but enrollment verification failed. Please contact support.");
                         }
-                        window.location.href = 'trilok_dashboard.html';
                     },
-                    // Removed 'contact' from prefill as requested
                     "prefill": {
                         "name": customerDetails.fullName,
                         "email": customerDetails.email
+                        // Phone is removed, as requested
                     },
                     "theme": { "color": "#3B82F6" }
                 };
@@ -403,12 +481,11 @@
             } catch (error) {
                 console.error('FULL ERROR:', error);
                 
-                // Enhanced error handling to catch the Edge Function 400
+                // Enhanced error handling
                 let errorMessage = error.message;
                 if (error.context && error.context.json) {
                      error.context.json().then(json => {
                          console.log("Edge Function Response:", json);
-                         // Show the specific error from the server (e.g. "Razorpay Error: ...")
                          alert(`Server Error: ${json.error || errorMessage}`);
                      });
                 } else {
@@ -420,13 +497,19 @@
             }
         });
 
+        // --- Init ---
         async function init() {
             const courseId = getCourseIdFromUrl();
-            if (!courseId) return;
-            currentCourse = await fetchCourseDetails(courseId);
+            if (!courseId) {
+                loadingDiv.innerHTML = `<p class="text-red-500">Error: No course ID specified.</p>`;
+                return;
+            }
+
+            currentCourse = await fetchCourse(courseId);
+            
             if (currentCourse) {
-                await checkLoginStatus();
-                updatePriceDisplay();
+                await checkLoginStatus(); // Check if user is logged in
+                updatePriceDisplay(); // Set price
                 loadingDiv.style.display = 'none';
                 mainContent.classList.remove('hidden');
             }
