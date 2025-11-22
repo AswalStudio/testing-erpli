@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Title will be set by JavaScript -->
+    <title>Course Player - ERPLI</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #F9FAFB; /* gray-50 */
+            color: #1F2937; /* gray-800 */
+        }
+        
+        /* Responsive video player */
+        .video-player-wrapper {
+            position: relative;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background-color: #000;
+        }
+        .video-player-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Lesson button styles */
+        .lesson-button {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-medium: 500;
+            color: #374151; /* gray-700 */
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+        }
+        .lesson-button:hover {
+            background-color: #F3F4F6; /* gray-100 */
+        }
+        .lesson-button.active {
+            background-color: #EFF6FF; /* blue-50 */
+            color: #2563EB; /* blue-600 */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Simple Header -->
+    <header class="bg-white shadow-sm">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Back Button -->
+                <a href="trilok_dashboard.html" class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900">
+                    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                    My Dashboard
+                </a>
+                
+                <!-- Course Title (Mobile) -->
+                <span id="course-title-mobile" class="sm:hidden text-lg font-bold text-gray-900 truncate">
+                    Loading...
+                </span>
+                
+                <!-- Logout Button -->
+                <button id="logout-button" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+                    Log Out
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+        <!-- Loading / Error Message -->
+        <div id="loading-message" class="text-center p-12">
+            <p class="text-gray-500">Loading course player...</p>
+        </div>
+        
+        <!-- Course Player (Hidden by default) -->
+        <div id="course-player-content" class="hidden">
+            
+            <!-- 1. Course Title (Desktop) -->
+            <h1 id="course-title-desktop" class="hidden sm:block text-3xl font-extrabold text-gray-900 mb-6">
+                Loading...
+            </h1>
+            
+            <!-- 2. Video Player / Link Wrapper -->
+            <div id="player-wrapper" class="video-player-wrapper shadow-lg">
+                <!-- Iframe or Link button will be injected here -->
+            </div>
+            
+            <!-- 3. Lesson Title & Navigation -->
+            <div class="mt-8">
+                <h2 id="lesson-title-header" class="text-2xl font-bold text-gray-900 mb-4">
+                    Loading...
+                </h2>
+                
+                <!-- Accordion Navigation -->
+                <div id="course-navigation" class="space-y-4">
+                    <!-- Sections and lessons will be injected here -->
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- 
+      START JAVASCRIPT
+    -->
+    <script type="module">
+        // 1. Import Supabase
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+        // 2. Supabase keys
+        const SUPABASE_URL = 'https://mclizdhmmzckhjnocktz.supabase.co'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jbGl6ZGhtbXpja2hqbm9ja3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNDk5MzUsImV4cCI6MjA3NzgyNTkzNX0.zKvs2XDOvcJfb_mCDHOMsJwRKvUViWWTjZRcOKExAfI'
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+        // 3. Get DOM elements
+        const loadingMessage = document.getElementById('loading-message');
+        const playerContent = document.getElementById('course-player-content');
+        const courseTitleMobile = document.getElementById('course-title-mobile');
+        const courseTitleDesktop = document.getElementById('course-title-desktop');
+        const playerWrapper = document.getElementById('player-wrapper');
+        const lessonTitleHeader = document.getElementById('lesson-title-header');
+        const courseNavigation = document.getElementById('course-navigation');
+        const logoutButton = document.getElementById('logout-button');
+
+        // Global state
+        let currentUser = null;
+        let currentCustomer = null;
+        let currentCourseId = null;
+        
+        // --- 1. Get Course ID from URL ---
+        function getCourseIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const courseId = params.get('course_id');
+            if (!courseId) {
+                alert('No course ID specified.');
+                window.location.href = 'trilok_dashboard.html';
+            }
+            return courseId;
+        }
+
+        // --- 2. Check Authentication & Enrollment (The Paywall) ---
+        async function checkAuthAndEnrollment() {
+            // A. Check login session
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session) {
+                window.location.href = 'trilok-login.html';
+                return false;
+            }
+            currentUser = session.user;
+
+            // B. Verify they are a customer
+            const { data: customer, error: customerError } = await supabase
+                .from('customers')
+                .select('id')
+                .eq('auth_user_id', currentUser.id)
+                .single();
+                
+            if (customerError || !customer) {
+                console.error('User is not a customer.', customerError);
+                await supabase.auth.signOut();
+                window.location.href = 'trilok-login.html';
+                return false;
+            }
+            currentCustomer = customer;
+            
+            // C. CRITICAL: Check if they are ENROLLED in THIS course
+            // Your RLS policy "Customers can view their own enrollments" allows this
+            const { data: enrollment, error: enrollmentError } = await supabase
+                .from('course_enrollments')
+                .select('id')
+                .eq('customer_id', currentCustomer.id)
+                .eq('course_id', currentCourseId)
+                .maybeSingle(); // Use maybeSingle in case they aren't enrolled
+
+            if (enrollmentError) {
+                console.error('Error checking enrollment:', enrollmentError);
+                alert('An error occurred. Please try again.');
+                window.location.href = 'trilok_dashboard.html';
+                return false;
+            }
+            
+            if (!enrollment) {
+                // NOT ENROLLED! This is the paywall.
+                alert('You are not enrolled in this course.');
+                window.location.href = 'trilok_dashboard.html';
+                return false;
+            }
+            
+            // --- 4. Success! All checks passed ---
+            return true;
+        }
+        
+        // --- 3. Main Data Fetching Function ---
+        async function fetchCourseData() {
+            // Your RLS policies ("Enrolled customers can view...") allow this query
+            // because we passed the auth check.
+            const { data: course, error } = await supabase
+                .from('courses')
+                .select(`
+                    name,
+                    course_sections (
+                        id,
+                        title,
+                        order,
+                        course_content (
+                            id,
+                            title,
+                            order,
+                            content_type,
+                            content_url
+                        )
+                    )
+                `)
+                .eq('id', currentCourseId)
+                .order('order', { foreignTable: 'course_sections', ascending: true })
+                .order('order', { foreignTable: 'course_sections.course_content', ascending: true })
+                .single();
+                
+            if (error) {
+                console.error('Error fetching course data:', error);
+                loadingMessage.textContent = 'Error loading course content.';
+                loadingMessage.classList.add('text-red-500');
+                return;
+            }
+            
+            // --- 4. Render the Page ---
+            loadingMessage.style.display = 'none';
+            playerContent.classList.remove('hidden');
+            
+            // Set titles
+            courseTitleMobile.textContent = course.name;
+            courseTitleDesktop.textContent = course.name;
+            
+            renderCourseNavigation(course.course_sections);
+            
+            // Auto-load the very first lesson
+            if (course.course_sections?.[0]?.course_content?.[0]) {
+                loadLesson(course.course_sections[0].course_content[0]);
+            } else {
+                lessonTitleHeader.textContent = 'This course has no lessons yet.';
+            }
+        }
+        
+        // --- 5. Render Course Navigation (Accordion) ---
+        function renderCourseNavigation(sections) {
+            courseNavigation.innerHTML = '';
+            if (!sections || sections.length === 0) {
+                courseNavigation.innerHTML = '<p class="text-gray-500">No sections found.</p>';
+                return;
+            }
+            
+            sections.forEach((section, index) => {
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'bg-white rounded-lg shadow border border-gray-200 overflow-hidden';
+                
+                const sectionButton = document.createElement('button');
+                sectionButton.className = 'w-full p-4 text-left font-bold text-lg text-gray-800 flex justify-between items-center';
+                sectionButton.innerHTML = `
+                    <span>${section.order}. ${section.title}</span>
+                    <svg class="h-5 w-5 toggle-icon transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                `;
+                
+                const lessonsList = document.createElement('div');
+                lessonsList.className = 'border-t border-gray-200 p-2 space-y-1';
+                // Hide all but the first section's lessons
+                if (index > 0) {
+                    lessonsList.classList.add('hidden');
+                } else {
+                    sectionButton.querySelector('.toggle-icon').classList.add('rotate-180');
+                }
+                
+                if (section.course_content && section.course_content.length > 0) {
+                    section.course_content.forEach(lesson => {
+                        const lessonButton = document.createElement('button');
+                        lessonButton.className = 'lesson-button';
+                        lessonButton.dataset.lessonId = lesson.id;
+                        
+                        const icon = lesson.content_type === 'video'
+                            ? `<svg class="h-5 w-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>`
+                            : `<svg class="h-5 w-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.102 1.101" /></svg>`;
+                            
+                        lessonButton.innerHTML = `${icon} <span>${lesson.order}. ${lesson.title}</span>`;
+                        
+                        lessonButton.addEventListener('click', () => loadLesson(lesson));
+                        lessonsList.appendChild(lessonButton);
+                    });
+                } else {
+                    lessonsList.innerHTML = '<p class="p-2 text-sm text-gray-500">No lessons in this section.</p>';
+                }
+                
+                // Accordion toggle logic
+                sectionButton.addEventListener('click', () => {
+                    lessonsList.classList.toggle('hidden');
+                    sectionButton.querySelector('.toggle-icon').classList.toggle('rotate-180');
+                });
+                
+                sectionDiv.appendChild(sectionButton);
+                sectionDiv.appendChild(lessonsList);
+                courseNavigation.appendChild(sectionDiv);
+            });
+        }
+        
+        // --- 6. Load a Lesson into the Player ---
+        function loadLesson(lesson) {
+            // Highlight the active lesson
+            document.querySelectorAll('.lesson-button').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.lessonId === lesson.id) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            lessonTitleHeader.textContent = lesson.title;
+            
+            if (lesson.content_type === 'video') {
+                const embedUrl = getEmbedUrl(lesson.content_url);
+                playerWrapper.className = 'video-player-wrapper shadow-lg';
+                playerWrapper.innerHTML = `
+                    <iframe 
+                        src="${embedUrl}" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen>
+                    </iframe>
+                `;
+            } else {
+                // It's a link
+                playerWrapper.className = 'flex items-center justify-center p-8 bg-gray-100 rounded-lg shadow-lg';
+                playerWrapper.innerHTML = `
+                    <a href="${lesson.content_url}" target="_blank" rel="noopener noreferrer" 
+                       class="inline-flex items-center gap-2 px-6 py-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition">
+                        <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        View Resource (PDF / Link)
+                    </a>
+                `;
+            }
+        }
+        
+        // --- 7. Helper: Smart URL Embedder ---
+        function getEmbedUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                // YouTube
+                if (urlObj.hostname.includes('youtube.com')) {
+                    const videoId = urlObj.searchParams.get('v');
+                    return `https://www.youtube.com/embed/${videoId}`;
+                }
+                // Vimeo
+                if (urlObj.hostname.includes('vimeo.com')) {
+                    const videoId = urlObj.pathname.split('/')[1];
+                    return `https://player.vimeo.com/video/${videoId}`;
+                }
+            } catch (e) {
+                console.error('Invalid URL:', e);
+            }
+            // Fallback for other/unrecognized video links
+            return url;
+        }
+
+        // --- 8. Initialize Page ---
+        async function init() {
+            currentCourseId = getCourseIdFromUrl();
+            if (!currentCourseId) return;
+
+            const isAuthorized = await checkAuthAndEnrollment();
+            
+            if (isAuthorized) {
+                // Set up logout button
+                logoutButton.addEventListener('click', async () => {
+                    await supabase.auth.signOut();
+                    window.location.href = 'trilok-login.html';
+                });
+                
+                // Fetch and render the course
+                await fetchCourseData();
+            }
+        }
+
+        init();
+        
+    </script>
+</body>
+</html>
