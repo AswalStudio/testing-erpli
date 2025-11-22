@@ -83,7 +83,7 @@
                         </div>
                         <div class="pt-4">
                             <p class="text-sm text-gray-500">
-                                Already have an account? <a href="customer_login.html" class="text-blue-600 hover:underline">Log in here</a>
+                                Already have an account? <a href="trilok-login.html" class="text-blue-600 hover:underline">Log in here</a>
                             </p>
                         </div>
                     </form>
@@ -222,7 +222,7 @@
             }
             
             if (data.institutes?.store_slug) {
-                backToStoreLink.href = `storefront.html?store=${data.institutes.store_slug}`;
+                backToStoreLink.href = `trilok.html?store=${data.institutes.store_slug}`;
             }
             document.getElementById('institute-name-header').textContent = data.institutes?.name || 'ERPLI Courses';
             return data;
@@ -362,7 +362,7 @@
 
                 if (finalPrice === 0) {
                      alert('Success! You have been enrolled.');
-                     window.location.href = 'student_dashboard.html';
+                     window.location.href = 'trilok_dashboard.html';
                      return;
                 }
 
@@ -382,7 +382,7 @@
                                 password: customerDetails.password,
                             });
                         }
-                        window.location.href = 'student_dashboard.html';
+                        window.location.href = 'trilok_dashboard.html';
                     },
                     // Removed 'contact' from prefill as requested
                     "prefill": {
