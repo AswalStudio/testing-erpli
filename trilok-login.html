@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Login - ERPLI</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        /* Light-mode styles, matching storefront/checkout */
+        body {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #F9FAFB; /* gray-50 */
+            color: #1F2937; /* gray-800 */
+        }
+        
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151; }
+        .form-input { width: 100%; border: 1px solid #D1D5DB; border-radius: 0.5rem; padding: 0.75rem 1rem; color: #111827; }
+        .form-input:focus { outline: none; border-color: #3B82F6; box-shadow: 0 0 0 2px #BFDBFE; }
+        
+        .form-submit-button { display: flex; justify-content: center; align-items: center; gap: 0.5rem; background-color: #3B82F6; color: #ffffff; font-weight: 600; padding: 0.75rem 1.5rem; border-radius: 0.5rem; transition: background-color 0.2s ease; }
+        .form-submit-button:hover { background-color: #2563EB; }
+        .form-submit-button:disabled { background-color: #9CA3AF; cursor: not-allowed; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
+        <h1 class="text-3xl font-bold text-center text-gray-900 mb-2">Customer Login</h1>
+        <p class="text-center text-gray-500 mb-6">Log in to access your courses.</p>
+        
+        <form id="login-form">
+            <div class="mb-4">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" required class="form-input" placeholder="you@example.com">
+            </div>
+            
+            <div class="mb-4">
+                <div class="flex justify-between items-center">
+                    <label for="password" class="form-label">Password</label>
+                    <a href="#" id="forgot-password-link" class="text-sm font-medium text-blue-600 hover:underline">Forgot?</a>
+                </div>
+                <input type="password" id="password" required class="form-input" placeholder="••••••••">
+            </div>
+            
+            <button type="submit" id="login-button" class="form-submit-button w-full">
+                Log In
+            </button>
+        </form>
+        
+        <p id="auth-message" class="text-center mt-4 text-sm"></p>
+        
+        <div class="text-center mt-6">
+            <p class="text-sm text-gray-500">
+                Don't have an account? 
+                <a href="storefront.html" class="font-medium text-blue-600 hover:underline">Browse courses</a>
+            </p>
+        </div>
+    </div>
+
+    <script type="module">
+        // 1. Import Supabase
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+        // 2. Supabase keys
+        const SUPABASE_URL = 'https://mclizdhmmzckhjnocktz.supabase.co'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jbGl6ZGhtbXpja2hqbm9ja3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNDk5MzUsImV4cCI6MjA3NzgyNTkzNX0.zKvs2XDOvcJfb_mCDHOMsJwRKvUViWWTjZRcOKExAfI'
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+        // 3. Get DOM elements
+        const loginForm = document.getElementById('login-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginButton = document.getElementById('login-button');
+        const authMessage = document.getElementById('auth-message');
+        const forgotPasswordLink = document.getElementById('forgot-password-link');
+
+        // --- Handle Login Form Submit ---
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); 
+            authMessage.textContent = '';
+            authMessage.className = 'text-center mt-4 text-sm';
+            loginButton.textContent = 'Logging in...';
+            loginButton.disabled = true;
+
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            // 1. Sign in the user
+            const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (loginError) {
+                console.error('Login error:', loginError.message);
+                authMessage.textContent = 'Invalid login credentials.';
+                authMessage.classList.add('text-red-500');
+                loginButton.textContent = 'Log In';
+                loginButton.disabled = false;
+                return;
+            }
+
+            // 2. Login was good. Now check if they are a CUSTOMER.
+            const user = loginData.user;
+            const { data: customer, error: customerError } = await supabase
+                .from('customers')
+                .select('id') // Just need to know if they exist
+                .eq('auth_user_id', user.id)
+                .single();
+
+            if (customerError || !customer) {
+                // This person is NOT a customer.
+                // They might be an Admin or Teacher.
+                authMessage.textContent = 'This login is for customers. Please use the Admin/Teacher portal.';
+                authMessage.classList.add('text-red-500');
+                await supabase.auth.signOut(); 
+                loginButton.textContent = 'Log In';
+                loginButton.disabled = false;
+                return;
+            }
+
+            // 3. SUCCESS! They are a customer.
+            window.location.href = 'student_dashboard.html?store=trilok';
+        });
+
+
+        const INSTITUTE_SLUG = "trilok"; // Hardcode here
+
+function getStoreSlug() {
+    return INSTITUTE_SLUG;
+}
+
+        // --- Handle "Forgot Password" ---
+        forgotPasswordLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            authMessage.textContent = '';
+            authMessage.className = 'text-center mt-4 text-sm';
+            
+            const email = emailInput.value;
+            const storeSlug = getStoreSlug(); // <--- GET THE CURRENT STORE
+            
+            if (!email) {
+                authMessage.textContent = 'Please enter your email address first.';
+                authMessage.classList.add('text-red-500');
+                return;
+            }
+            
+            forgotPasswordLink.textContent = 'Sending...';
+            
+            // Pass the store slug to the backend
+            const { data, error } = await supabase.functions.invoke('send-reset-email', {
+                body: { 
+                    email: email,
+                    store_slug: storeSlug // <--- SEND IT HERE
+                }
+            });
+
+            if (error) {
+                authMessage.textContent = "Error sending email. Please try again.";
+                authMessage.classList.add('text-red-500');
+            } else {
+                authMessage.textContent = 'Password reset link sent! Please check your email.';
+                authMessage.classList.add('text-green-600');
+            }
+            
+            forgotPasswordLink.textContent = 'Forgot?';
+        });
+
+
+        
+        
+    </script>
+</body>
+</html>
